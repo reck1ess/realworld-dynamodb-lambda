@@ -1,29 +1,28 @@
-const Util = require('./Util');
-const usersTable = Util.getTableName('users');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const Util = require("./Util");
+const usersTable = Util.getTableName("users");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 /**
  * @module User
  */
 module.exports = {
-
   /** Create user */
   async create(event) {
     const body = JSON.parse(event.body);
 
     if (!body.user) {
-      return Util.envelop('User must be specified.', 422);
+      return Util.envelop("User must be specified.", 422);
     }
     const newUser = body.user;
     if (!newUser.username) {
-      return Util.envelop('Username must be specified.', 422);
+      return Util.envelop("Username must be specified.", 422);
     }
     if (!newUser.email) {
-      return Util.envelop('Email must be specified.', 422);
+      return Util.envelop("Email must be specified.", 422);
     }
     if (!newUser.password) {
-      return Util.envelop('Password must be specified.', 422);
+      return Util.envelop("Password must be specified.", 422);
     }
 
     // Verify username is not taken
@@ -45,8 +44,8 @@ module.exports = {
       Item: {
         username: newUser.username,
         email: newUser.email,
-        password: encryptedPassword,
-      },
+        password: encryptedPassword
+      }
     }).promise();
 
     return Util.envelop({
@@ -54,8 +53,8 @@ module.exports = {
         email: newUser.email,
         token: mintToken(newUser.username),
         username: newUser.username,
-        bio: '',
-        image: '',
+        bio: "",
+        image: ""
       }
     });
   },
@@ -64,14 +63,14 @@ module.exports = {
   async login(event) {
     const body = JSON.parse(event.body);
     if (!body.user) {
-      return Util.envelop('User must be specified.', 422);
+      return Util.envelop("User must be specified.", 422);
     }
     const user = body.user;
     if (!user.email) {
-      return Util.envelop('Email must be specified.', 422);
+      return Util.envelop("Email must be specified.", 422);
     }
     if (!user.password) {
-      return Util.envelop('Password must be specified.', 422);
+      return Util.envelop("Password must be specified.", 422);
     }
 
     // Get user with this email
@@ -81,17 +80,18 @@ module.exports = {
     }
 
     // Attempt to match password
-    if (!bcrypt.compareSync(user.password,
-        userWithThisEmail.Items[0].password)) {
-      return Util.envelop('Wrong password.', 422);
+    if (
+      !bcrypt.compareSync(user.password, userWithThisEmail.Items[0].password)
+    ) {
+      return Util.envelop("Wrong password.", 422);
     }
 
     const authenticatedUser = {
       email: user.email,
       token: mintToken(userWithThisEmail.Items[0].username),
       username: userWithThisEmail.Items[0].username,
-      bio: userWithThisEmail.Items[0].bio || '',
-      image: userWithThisEmail.Items[0].image || '',
+      bio: userWithThisEmail.Items[0].bio || "",
+      image: userWithThisEmail.Items[0].image || ""
     };
     return Util.envelop({ user: authenticatedUser });
   },
@@ -100,15 +100,15 @@ module.exports = {
   async get(event) {
     const authenticatedUser = await authenticateAndGetUser(event);
     if (!authenticatedUser) {
-      return Util.envelop('Token not present or invalid.', 422);
+      return Util.envelop("Token not present or invalid.", 401);
     }
     return Util.envelop({
       user: {
         email: authenticatedUser.email,
         token: getTokenFromEvent(event),
         username: authenticatedUser.username,
-        bio: authenticatedUser.bio || '',
-        image: authenticatedUser.image || '',
+        bio: authenticatedUser.bio || "",
+        image: authenticatedUser.image || ""
       }
     });
   },
@@ -117,15 +117,15 @@ module.exports = {
   async update(event) {
     const authenticatedUser = await authenticateAndGetUser(event);
     if (!authenticatedUser) {
-      return Util.envelop('Token not present or invalid.', 422);
+      return Util.envelop("Token not present or invalid.", 401);
     }
     const body = JSON.parse(event.body);
     const user = body.user;
     if (!user) {
-      return Util.envelop('User must be specified.', 422);
+      return Util.envelop("User must be specified.", 422);
     }
     const updatedUser = {
-      username: authenticatedUser.username,
+      username: authenticatedUser.username
     };
     if (user.email) {
       // Verify email is not taken
@@ -147,7 +147,7 @@ module.exports = {
 
     await Util.DocumentClient.put({
       TableName: usersTable,
-      Item: updatedUser,
+      Item: updatedUser
     }).promise();
 
     // Decorate updatedUser and return it
@@ -158,17 +158,16 @@ module.exports = {
       updatedUser.email = authenticatedUser.email;
     }
     if (!updatedUser.image) {
-      updatedUser.image = authenticatedUser.image || '';
+      updatedUser.image = authenticatedUser.image || "";
     }
     if (!updatedUser.bio) {
-      updatedUser.bio = authenticatedUser.bio || '';
+      updatedUser.bio = authenticatedUser.bio || "";
     }
     updatedUser.token = getTokenFromEvent(event);
 
     return Util.envelop({
-      user: updatedUser,
+      user: updatedUser
     });
-
   },
 
   authenticateAndGetUser,
@@ -176,10 +175,8 @@ module.exports = {
 
   async getProfile(event) {
     const username = event.pathParameters.username;
-    const authenticatedUser =
-      await authenticateAndGetUser(event);
-    const profile = await getProfileByUsername(username,
-      authenticatedUser);
+    const authenticatedUser = await authenticateAndGetUser(event);
+    const profile = await getProfileByUsername(username, authenticatedUser);
     if (!profile) {
       return Util.envelop(`User not found: [${username}]`, 422);
     }
@@ -191,24 +188,29 @@ module.exports = {
   async follow(event) {
     const authenticatedUser = await authenticateAndGetUser(event);
     if (!authenticatedUser) {
-      return Util.envelop('Token not present or invalid.', 422);
+      return Util.envelop("Token not present or invalid.", 401);
     }
     const username = event.pathParameters.username;
     const user = (await getUserByUsername(username)).Item;
-    const shouldFollow = !(event.httpMethod === 'DELETE');
+    const shouldFollow = !(event.httpMethod === "DELETE");
 
     // Update "followers" field on followed user
     if (shouldFollow) {
-      if (user.followers &&
-        !user.followers.values.includes(authenticatedUser.username)) {
+      if (
+        user.followers &&
+        !user.followers.values.includes(authenticatedUser.username)
+      ) {
         user.followers.values.push(authenticatedUser.username);
       } else {
-        user.followers = Util.DocumentClient.createSet(
-          [authenticatedUser.username]);
+        user.followers = Util.DocumentClient.createSet([
+          authenticatedUser.username
+        ]);
       }
     } else {
-      if (user.followers &&
-        user.followers.values.includes(authenticatedUser.username)) {
+      if (
+        user.followers &&
+        user.followers.values.includes(authenticatedUser.username)
+      ) {
         user.followers.values = user.followers.values.filter(
           e => e != authenticatedUser.username
         );
@@ -219,24 +221,27 @@ module.exports = {
     }
     await Util.DocumentClient.put({
       TableName: usersTable,
-      Item: user,
+      Item: user
     }).promise();
 
     // Update "following" field on follower user
     if (shouldFollow) {
-      if (authenticatedUser.following &&
-        !authenticatedUser.following.values.includes(username)) {
+      if (
+        authenticatedUser.following &&
+        !authenticatedUser.following.values.includes(username)
+      ) {
         authenticatedUser.following.values.push(username);
       } else {
         authenticatedUser.following = Util.DocumentClient.createSet([username]);
       }
     } else {
-      if (authenticatedUser.following &&
-        authenticatedUser.following.values.includes(username)) {
-        authenticatedUser.following.values =
-          authenticatedUser.following.values.filter(
-            e => e != username
-          );
+      if (
+        authenticatedUser.following &&
+        authenticatedUser.following.values.includes(username)
+      ) {
+        authenticatedUser.following.values = authenticatedUser.following.values.filter(
+          e => e != username
+        );
         /* istanbul ignore next  */
         if (!authenticatedUser.following.values.length) {
           delete authenticatedUser.following;
@@ -245,45 +250,47 @@ module.exports = {
     }
     await Util.DocumentClient.put({
       TableName: usersTable,
-      Item: authenticatedUser,
+      Item: authenticatedUser
     }).promise();
 
     const profile = {
       username,
-      bio: user.bio || '',
-      image: user.image || '',
-      following: shouldFollow,
+      bio: user.bio || "",
+      image: user.image || "",
+      following: shouldFollow
     };
     return Util.envelop({ profile });
   },
 
   /** Create followed users */
   async getFollowedUsers(aUsername) {
-    const user = (await Util.DocumentClient.get({
-      TableName: usersTable,
-      Key: {
-        username: aUsername,
-      },
-    }).promise()).Item;
+    const user = (
+      await Util.DocumentClient.get({
+        TableName: usersTable,
+        Key: {
+          username: aUsername
+        }
+      }).promise()
+    ).Item;
     return user.following ? user.following.values : [];
-  },
-
+  }
 };
 
 function mintToken(aUsername) {
-  return jwt.sign({ username: aUsername },
-    Util.tokenSecret, { expiresIn: '2 days' });
+  return jwt.sign({ username: aUsername }, Util.tokenSecret, {
+    expiresIn: "15m"
+  });
 }
 
 function getUserByEmail(aEmail) {
   return Util.DocumentClient.query({
     TableName: usersTable,
-    IndexName: 'email',
-    KeyConditionExpression: 'email = :email',
+    IndexName: "email",
+    KeyConditionExpression: "email = :email",
     ExpressionAttributeValues: {
-      ':email': aEmail,
+      ":email": aEmail
     },
-    Select: 'ALL_ATTRIBUTES',
+    Select: "ALL_ATTRIBUTES"
   }).promise();
 }
 
@@ -291,13 +298,13 @@ function getUserByUsername(aUsername) {
   return Util.DocumentClient.get({
     TableName: usersTable,
     Key: {
-      username: aUsername,
-    },
+      username: aUsername
+    }
   }).promise();
 }
 
 function getTokenFromEvent(event) {
-  return event.headers.Authorization.replace('Token ', '');
+  return event.headers.Authorization.replace("Token ", "");
 }
 
 async function getProfileByUsername(aUsername, aAuthenticatedUser) {
@@ -308,15 +315,16 @@ async function getProfileByUsername(aUsername, aAuthenticatedUser) {
 
   const profile = {
     username: user.username,
-    bio: user.bio || '',
-    image: user.image || '',
-    following: false,
+    bio: user.bio || "",
+    image: user.image || "",
+    following: false
   };
 
   // If user is authenticated, set following bit
   if (user.followers && aAuthenticatedUser) {
-    profile.following = user.followers.values
-      .includes(aAuthenticatedUser.username);
+    profile.following = user.followers.values.includes(
+      aAuthenticatedUser.username
+    );
   }
   return profile;
 }
